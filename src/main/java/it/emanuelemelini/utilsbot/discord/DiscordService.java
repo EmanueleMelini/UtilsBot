@@ -1,8 +1,6 @@
 package it.emanuelemelini.utilsbot.discord;
 
-import it.emanuelemelini.utilsbot.discord.commands.CategoryCommand;
-import it.emanuelemelini.utilsbot.discord.commands.ChannelCommand;
-import it.emanuelemelini.utilsbot.discord.commands.RestartCommand;
+import it.emanuelemelini.utilsbot.discord.commands.*;
 import it.emanuelemelini.utilsbot.discord.events.VoiceChannelDeleteEvent;
 import lombok.extern.log4j.Log4j2;
 import net.dv8tion.jda.api.JDA;
@@ -21,13 +19,15 @@ import java.util.stream.Collectors;
 public class DiscordService {
 
 	private final JDA jda;
+	private final Activity activity;
 
 	public DiscordService(CommandController commandController, @Value("${env.DISCORD_TOKEN}") String token) throws InterruptedException {
 
+		activity = Activity.listening("/help");
 		//commandController = new CommandController();
 
 		jda = JDABuilder.create(token, GatewayIntent.GUILD_MESSAGES)
-				.setActivity(Activity.listening("people"))
+				.setActivity(activity)
 				.addEventListeners(commandController.getListener(), new VoiceChannelDeleteEvent())
 				.build()
 				.awaitReady();
@@ -38,6 +38,8 @@ public class DiscordService {
 				.addCommands(commandController.register(new CategoryCommand())
 						.register(new ChannelCommand())
 						.register(new RestartCommand())
+						.register(new HelpCommand())
+						.register(new AuthorCommand())
 						.getSlashCommandsData())
 				.complete()
 				.stream()

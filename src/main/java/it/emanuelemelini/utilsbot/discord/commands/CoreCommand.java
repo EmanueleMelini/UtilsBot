@@ -2,7 +2,6 @@ package it.emanuelemelini.utilsbot.discord.commands;
 
 import it.emanuelemelini.utilsbot.UtilsBotApplication;
 import it.emanuelemelini.utilsbot.discord.CommandController;
-import it.emanuelemelini.utilsbot.discord.DiscordService;
 import lombok.extern.log4j.Log4j2;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
@@ -11,7 +10,9 @@ import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
+import net.dv8tion.jda.api.requests.RestAction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 @Log4j2
 public abstract class CoreCommand extends ListenerAdapter {
@@ -19,7 +20,7 @@ public abstract class CoreCommand extends ListenerAdapter {
 	public String name;
 	public String description;
 
-	public boolean bypassClosed;
+	public boolean bypassMaintenance;
 
 	//public final DiscordService service;
 	//public final JDA jda;
@@ -33,9 +34,10 @@ public abstract class CoreCommand extends ListenerAdapter {
 		command = Commands.slash(name, description);
 		command.setDefaultPermissions(DefaultMemberPermissions.enabledFor(Permission.MANAGE_CHANNEL, Permission.MODERATE_MEMBERS));
 
-		commandController = UtilsBotApplication.getApplicationContext().getBean(CommandController.class);
+		commandController = UtilsBotApplication.getApplicationContext()
+				.getBean(CommandController.class);
 
-		bypassClosed = false;
+		bypassMaintenance = false;
 	}
 
 	public void addOption(OptionType optionType, String name, String description) {
@@ -59,18 +61,23 @@ public abstract class CoreCommand extends ListenerAdapter {
 		if (event.getGuild() == null) {
 			event.reply("This bot works only inside Servers!")
 					.queue();
-		} else if (UtilsBotApplication.getClosed()) {
-			if (!bypassClosed)
-				event.reply("This command works only when bot is active!")
-						.setEphemeral(true)
-						.queue();
-			else
-				exec(event);
-		} else {
-			exec(event);
-		}
+		} else if (UtilsBotApplication.getMaintenance() && !bypassMaintenance) {
+			event.reply("This command works only when bot is active!")
+					.setEphemeral(true)
+					.queue();
+		} else if (canExecute(event)) {
+			RestAction<?> action = exec(event);
+			if (action != null)
+				action.queue();
+		} else
+			return;
 	}
 
-	public abstract void exec(@NotNull SlashCommandInteractionEvent event);
+	public abstract @Nullable RestAction<?> exec(@NotNull SlashCommandInteractionEvent event);
+
+	public boolean canExecute(@NotNull SlashCommandInteractionEvent event) {
+		return event.getName()
+				.equals(name);
+	}
 
 }

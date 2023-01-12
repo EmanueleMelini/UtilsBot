@@ -5,12 +5,14 @@ import it.emanuelemelini.utilsbot.sql.models.AuthorModel;
 import it.emanuelemelini.utilsbot.sql.repos.AuthorRepository;
 import lombok.extern.log4j.Log4j2;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.commands.DefaultMemberPermissions;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.requests.RestAction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 @Log4j2
 public class RestartCommand extends CoreCommand {
@@ -18,54 +20,41 @@ public class RestartCommand extends CoreCommand {
 	private AuthorRepository authorRepository;
 
 	public RestartCommand() {
-		super("restart", "Restart the bot");
+		super("restart", "Restart UtilsBot");
 		setDefaultPermission(DefaultMemberPermissions.DISABLED);
-		addOption(OptionType.BOOLEAN, "close", "Restart the bot closed");
+		addOption(OptionType.BOOLEAN, "maintenance", "Restart UtilsBot in maintenance mode");
 
 		authorRepository = UtilsBotApplication.getApplicationContext()
 				.getBean(AuthorRepository.class);
 
-		bypassClosed = true;
+		bypassMaintenance = true;
 	}
 
 	@Override
-	public void exec(@NotNull SlashCommandInteractionEvent event) {
-		if (event.getName()
-				.equals(name)) {
-			slashStopCommand(event);
-		} else {
-			return;
-		}
-	}
-
-	private void slashStopCommand(@NotNull SlashCommandInteractionEvent event) {
+	public @Nullable RestAction<?> exec(@NotNull SlashCommandInteractionEvent event) {
 		event.deferReply()
 				.setEphemeral(true)
 				.queue();
 
+		InteractionHook hook = event.getHook();
+
 		AuthorModel authorModel = authorRepository.getAuthorByDiscordIdAndDeleted(event.getUser()
 				.getId(), false);
 
-		if (authorModel == null) {
-			event.getHook()
-					.sendMessage("This command can only be executed by Authors, contact the developer!")
-					.queue();
-			return;
-		}
+		if (authorModel == null)
+			return hook.sendMessage("This command can only be executed by Authors, contact the developer!");
 
-		OptionMapping closedOption = event.getOption("close");
-		boolean closed = false;
-		log.info("event.getOption(\"close\"): " + closedOption);
-		if (closedOption != null) {
-			closed = closedOption.getAsBoolean();
-		}
+		OptionMapping maintenanceOption = event.getOption("maintenance");
+		boolean maintenance = false;
+		if (maintenanceOption != null)
+			maintenance = maintenanceOption.getAsBoolean();
 
-		event.getHook()
-				.sendMessage("Bot shutting down" + (closed ? " closed" : "") + "!")
+		hook.sendMessage("Restating UtilsBot" + (maintenance ? " in maintenance mode" : "") + "!")
 				.complete();
 
-		boolean finalClosed = closed;
-		String finalId = event.getUser().getId();
+		boolean finalMaintenance = maintenance;
+		String finalId = event.getUser()
+				.getId();
 
 		UtilsBotApplication.restart(() -> UtilsBotApplication.getApplicationContext()
 				.getBean(JDA.class)
@@ -73,8 +62,10 @@ public class RestartCommand extends CoreCommand {
 				.complete()
 				.openPrivateChannel()
 				.complete()
-				.sendMessage("Bot shut down" + (finalClosed ? " closed" : "") + "!")
-				.queue(), closed);
+				.sendMessage("UtilsBot restarted" + (finalMaintenance ? " in maintenance mode" : "") + "!")
+				.queue(), maintenance);
+
+		return null;
 
 	}
 

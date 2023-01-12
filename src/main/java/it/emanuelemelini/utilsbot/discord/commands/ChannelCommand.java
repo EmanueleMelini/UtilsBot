@@ -8,7 +8,9 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
+import net.dv8tion.jda.api.requests.RestAction;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import static it.emanuelemelini.utilsbot.UtilsBotApplication.REPLACE_CHAR;
 
@@ -26,68 +28,42 @@ public class ChannelCommand extends CoreCommand {
 	}
 
 	@Override
-	public void exec(@NotNull SlashCommandInteractionEvent event) {
-		if (event.getName()
-				.equals(name)) {
-			slashChannelCommand(event);
-		} else {
-			return;
-		}
-	}
-
-	private void slashChannelCommand(@NotNull SlashCommandInteractionEvent event) {
+	public @Nullable RestAction<?> exec(@NotNull SlashCommandInteractionEvent event) {
 		event.deferReply()
 				.setEphemeral(true)
 				.queue();
+
 		InteractionHook hook = event.getHook();
 
 		Guild discordGuild = event.getGuild();
 
-		if (discordGuild == null) {
-			hook.sendMessage("Guild error!")
-					.queue();
-			return;
-		}
+		if (discordGuild == null)
+			return hook.sendMessage("Guild error!");
 
 		String discordId = discordGuild.getId();
 		GuildModel guildModel = guildRepository.getGuildByDiscordIdAndDeleted(discordId, false);
 
-		if (guildModel == null) {
-			hook.sendMessage("Select a category with the /category command first!")
-					.queue();
-			return;
-		}
+		if (guildModel == null)
+			return hook.sendMessage("Select a category with the /category command first!");
 
 		OptionMapping nameOption = event.getOption("name");
-		if (nameOption == null) {
-			hook.sendMessage("Option error!")
-					.queue();
-			return;
-		}
+		if (nameOption == null)
+			return hook.sendMessage("Option error!");
 
 		String voiceName = nameOption.getAsString();
-		if (voiceName.isBlank()) {
-			hook.sendMessage("Insert valid Voice Channel name!")
-					.queue();
-			return;
-		}
+		if (voiceName.isBlank())
+			return hook.sendMessage("Insert valid Voice Channel name!");
 
-		if (!voiceName.contains(REPLACE_CHAR)) {
-			hook.sendMessage("Insert the replace string!")
-					.queue();
-			return;
-		}
+		if (!voiceName.contains(REPLACE_CHAR))
+			return hook.sendMessage("Insert the replace string!");
 
-		if (guildModel.getVoiceName().equals(voiceName)) {
-			hook.sendMessage("The inserted name is the same as the actual one!")
-					.queue();
-			return;
-		}
+		if (guildModel.getVoiceName().equals(voiceName))
+			return hook.sendMessage("The inserted name is the same as the actual one!");
 
 		guildModel.setVoiceName(voiceName);
 		guildRepository.save(guildModel);
-		hook.sendMessage("Voice Channel default name changed!")
-				.queue();
+
+		return hook.sendMessage("Voice Channel default name changed!");
 
 	}
 

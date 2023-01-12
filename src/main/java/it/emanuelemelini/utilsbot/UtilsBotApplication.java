@@ -21,26 +21,26 @@ public class UtilsBotApplication implements CommandLineRunner, ApplicationContex
 
 	public final String version;
 	private static ConfigurableApplicationContext ctx;
-	private static boolean closed;
+	private static boolean maintenance;
 
 	public static void main(String[] args) {
 		SpringApplication app = new SpringApplication(UtilsBotApplication.class);
 		app.setBannerMode(Banner.Mode.CONSOLE);
 		app.run(args);
-		UtilsBotApplication.closed = false;
+		UtilsBotApplication.maintenance = false;
 	}
 
 	public UtilsBotApplication(@Value("${application.version}") String version) {
 		this.version = version;
 	}
 
-	public static void restart(@Nullable Runnable then, boolean closed) {
+	public static void restart(@Nullable Runnable then, boolean maintenance) {
 
 		Thread thread = new Thread(() -> {
 
-			log.info("closed: " + closed);
+			log.info("maintenance: " + maintenance);
 			ctx.close();
-			UtilsBotApplication.closed = closed;
+			UtilsBotApplication.maintenance = maintenance;
 			SpringApplication app = new SpringApplication(UtilsBotApplication.class);
 			app.setBannerMode(Banner.Mode.CONSOLE);
 			app.run();
@@ -73,8 +73,8 @@ public class UtilsBotApplication implements CommandLineRunner, ApplicationContex
 		return ctx;
 	}
 
-	public static boolean getClosed() {
-		return closed;
+	public static boolean getMaintenance() {
+		return maintenance;
 	}
 
 }

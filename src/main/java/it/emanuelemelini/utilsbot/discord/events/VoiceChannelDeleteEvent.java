@@ -10,6 +10,8 @@ import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent;
+import net.dv8tion.jda.api.requests.RestAction;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,10 +30,10 @@ public class VoiceChannelDeleteEvent extends CoreChannelEvent {
 	}
 
 	@Override
-	public void exec(ChannelDeleteEvent event) {
+	public @Nullable RestAction<?> exec(ChannelDeleteEvent event) {
 		if (!event.getChannelType()
 				.equals(ChannelType.VOICE))
-			return;
+			return null;
 
 		Guild discordGuild = event.getGuild();
 
@@ -40,18 +42,18 @@ public class VoiceChannelDeleteEvent extends CoreChannelEvent {
 
 		GuildModel guildModel = guildRepository.getGuildByDiscordIdAndDeleted(discordGuild.getId(), false);
 		if (guildModel == null)
-			return;
+			return null;
 
 		Category discordCategory = voiceChannel.getParentCategory();
 		if (discordCategory == null || !discordCategory.getId()
 				.equals(guildModel.getCategoryId()) || guildModel.getVoiceName()
 				.isBlank())
-			return;
+			return null;
 
 		if (voiceChannel.getName()
 				.replaceAll("[^0-9]", "")
 				.isBlank())
-			return;
+			return null;
 
 		int channelNumber = -1;
 
@@ -78,7 +80,7 @@ public class VoiceChannelDeleteEvent extends CoreChannelEvent {
 		}
 
 		if (channelNumber == -1)
-			return;
+			return null;
 
 		String newVoiceName = guildModel.getVoiceName();
 		newVoiceName = newVoiceName.replace(REPLACE_CHAR, String.valueOf(channelNumber + 1));
@@ -105,6 +107,8 @@ public class VoiceChannelDeleteEvent extends CoreChannelEvent {
 
 			}
 		}
+
+		return null;
 
 	}
 

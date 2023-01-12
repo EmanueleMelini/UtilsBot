@@ -2,6 +2,7 @@ package it.emanuelemelini.utilsbot;
 
 import lombok.extern.log4j.Log4j2;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.Banner;
@@ -19,16 +20,39 @@ public class UtilsBotApplication implements CommandLineRunner, ApplicationContex
 	public static final String REPLACE_CHAR = "{num}";
 
 	public final String version;
-	public static ConfigurableApplicationContext ctx;
+	private static ConfigurableApplicationContext ctx;
+	private static boolean closed;
 
 	public static void main(String[] args) {
 		SpringApplication app = new SpringApplication(UtilsBotApplication.class);
 		app.setBannerMode(Banner.Mode.CONSOLE);
 		app.run(args);
+		UtilsBotApplication.closed = false;
 	}
 
 	public UtilsBotApplication(@Value("${application.version}") String version) {
 		this.version = version;
+	}
+
+	public static void restart(@Nullable Runnable then, boolean closed) {
+
+		Thread thread = new Thread(() -> {
+
+			log.info("closed: " + closed);
+			ctx.close();
+			UtilsBotApplication.closed = closed;
+			SpringApplication app = new SpringApplication(UtilsBotApplication.class);
+			app.setBannerMode(Banner.Mode.CONSOLE);
+			app.run();
+
+			if (then != null)
+				then.run();
+
+		});
+
+		thread.setDaemon(false);
+		thread.start();
+
 	}
 
 	@Override
@@ -43,6 +67,14 @@ public class UtilsBotApplication implements CommandLineRunner, ApplicationContex
 
 	public static ApplicationContext getApplicationContext() {
 		return ctx;
+	}
+
+	public static ConfigurableApplicationContext getConfigurableApplicationContext() {
+		return ctx;
+	}
+
+	public static boolean getClosed() {
+		return closed;
 	}
 
 }

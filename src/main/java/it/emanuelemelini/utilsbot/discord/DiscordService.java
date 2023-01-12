@@ -2,6 +2,7 @@ package it.emanuelemelini.utilsbot.discord;
 
 import it.emanuelemelini.utilsbot.discord.commands.CategoryCommand;
 import it.emanuelemelini.utilsbot.discord.commands.ChannelCommand;
+import it.emanuelemelini.utilsbot.discord.commands.RestartCommand;
 import it.emanuelemelini.utilsbot.discord.events.VoiceChannelDeleteEvent;
 import lombok.extern.log4j.Log4j2;
 import net.dv8tion.jda.api.JDA;
@@ -36,6 +37,7 @@ public class DiscordService {
 		String commandListString = jda.updateCommands()
 				.addCommands(commandController.register(new CategoryCommand())
 						.register(new ChannelCommand())
+						.register(new RestartCommand())
 						.getSlashCommandsData())
 				.complete()
 				.stream()

@@ -6,15 +6,19 @@ import it.emanuelemelini.utilsbot.sql.repos.GuildRepository;
 import lombok.extern.log4j.Log4j2;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.PermissionOverride;
+import net.dv8tion.jda.api.entities.channel.Channel;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.Category;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.channel.ChannelDeleteEvent;
 import net.dv8tion.jda.api.requests.RestAction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static it.emanuelemelini.utilsbot.UtilsBotApplication.REPLACE_CHAR;
 
@@ -50,45 +54,87 @@ public class VoiceChannelDeleteEvent extends CoreChannelEvent {
 				.isBlank())
 			return null;
 
-		if (voiceChannel.getName()
-				.replaceAll("[^0-9]", "")
-				.isBlank())
+		List<Integer> oldChannelNumberList = getNumbersFromString(voiceChannel.getName());
+		if (oldChannelNumberList.isEmpty())
 			return null;
 
-		int channelNumber = -1;
+		int oldChannelNumber = oldChannelNumberList.stream()
+				.mapToInt(n -> n)
+				.max()
+				.orElse(-1);
+		if (oldChannelNumber == -1)
+			return null;
 
 		List<VoiceChannel> voiceChannels = new ArrayList<>();
 		voiceChannels.add(voiceChannel);
-		voiceChannels.addAll(discordCategory.getVoiceChannels());
+		voiceChannels.addAll(discordCategory.getVoiceChannels()
+				.stream()
+				.filter(ch -> !getNumbersFromString(ch.getName()).isEmpty())
+				.toList());
 
-		for (VoiceChannel channel : voiceChannels) {
+		List<Integer> voiceChannelsNumberList = voiceChannels.stream()
+				.map(Channel::getName)
+				.map(this::getNumbersFromString)
+				.map(names -> names.stream()
+						.mapToInt(n -> n)
+						.max()
+						.orElse(-1))
+				.toList();
 
-			String channelName = channel.getName();
+		int higherChannelNumber = voiceChannelsNumberList.stream()
+				.mapToInt(n -> n)
+				.max()
+				.orElse(-1);
 
-			String channelNumberBefore = channelName.replaceAll("[^0-9]", "");
+		int lowerChannelNumber = voiceChannelsNumberList.stream()
+				.mapToInt(n -> n)
+				.min()
+				.orElse(-1);
 
-			if (!channelNumberBefore.isBlank())
-				try {
-					int channelNumberList = Integer.parseInt(channelNumberBefore);
-					if (channelNumberList > channelNumber)
-						channelNumber = channelNumberList;
+		if (lowerChannelNumber != oldChannelNumber) {
+			List<VoiceChannel> voiceChannelToUpdate = new ArrayList<>(voiceChannels);
+			voiceChannelToUpdate.remove(voiceChannel);
 
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
+			if (higherChannelNumber != oldChannelNumber) {
+				voiceChannelToUpdate.removeAll(voiceChannelToUpdate.stream()
+						.filter(channel -> getNumbersFromString(channel.getName()).stream()
+								.mapToInt(n -> n)
+								.max()
+								.orElse(-1) > oldChannelNumber)
+						.toList());
+			}
+
+			voiceChannelToUpdate.forEach(channel -> {
+				int oldNumber = getNumbersFromString(channel.getName()).stream()
+						.mapToInt(n -> n)
+						.max()
+						.orElse(-1);
+				channel.getManager()
+						.setName(guildModel.getVoiceName()
+								.replace(REPLACE_CHAR, String.valueOf(oldNumber + 1)))
+						.queue();
+			});
+
+			discordCategory.modifyVoiceChannelPositions()
+					.sortOrder((channel1, channel2) -> {
+						if (getNumbersFromString(channel1.getName()).isEmpty())
+							return -1;
+						else {
+							int n1 = getNumbersFromString(channel1.getName()).stream().mapToInt(n -> n).max().orElse(1);
+							int n2 = getNumbersFromString(channel2.getName()).stream().mapToInt(n -> n).max().orElse(1);
+							return Integer.compare(n1, n2);
+						}
+					}).queue();
 
 		}
 
-		if (channelNumber == -1)
+		if (higherChannelNumber == -1)
 			return null;
 
-		String newVoiceName = guildModel.getVoiceName();
-		newVoiceName = newVoiceName.replace(REPLACE_CHAR, String.valueOf(channelNumber + 1));
+		String newVoiceChannelName = guildModel.getVoiceName();
+		newVoiceChannelName = newVoiceChannelName.replace(REPLACE_CHAR, String.valueOf(higherChannelNumber + 1));
 
-		//VoiceChannel newVoiceChannel = voiceChannel.createCopy().complete();
-		//newVoiceChannel.getManager().setName(newVoiceName).queue();
-
-		VoiceChannel newVoiceChannel = discordCategory.createVoiceChannel(newVoiceName)
+		VoiceChannel newVoiceChannel = discordCategory.createVoiceChannel(newVoiceChannelName)
 				.complete();
 
 		newVoiceChannel.getManager()
@@ -110,6 +156,22 @@ public class VoiceChannelDeleteEvent extends CoreChannelEvent {
 
 		return null;
 
+	}
+
+	@NotNull
+	private List<Integer> getNumbersFromString(String string) {
+		Pattern pattern = Pattern.compile("\\d+");
+		Matcher matcher = pattern.matcher(string);
+		List<Integer> list = new ArrayList<>();
+		while (matcher.find()) {
+			String matched = matcher.group();
+			try {
+				list.add(Integer.parseInt(matched));
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}
+		return list;
 	}
 
 }

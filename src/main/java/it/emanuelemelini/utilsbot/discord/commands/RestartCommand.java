@@ -17,7 +17,7 @@ import org.jetbrains.annotations.Nullable;
 @Log4j2
 public class RestartCommand extends CoreCommand {
 
-	private AuthorRepository authorRepository;
+	private final AuthorRepository authorRepository;
 
 	public RestartCommand() {
 		super("restart", "Restart UtilsBot");

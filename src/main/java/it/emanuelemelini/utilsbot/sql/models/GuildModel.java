@@ -10,7 +10,7 @@ import lombok.Setter;
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Entity(name = "guild")
+@Entity(name = "guilds")
 public class GuildModel {
 
 	@Id
